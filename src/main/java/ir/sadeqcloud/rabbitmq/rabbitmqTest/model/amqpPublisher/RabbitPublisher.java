@@ -24,8 +24,8 @@ public class RabbitPublisher {
         this.objectMapper=objectMapper;
     }
 
-    public void publishSome(Message amqpMessage){
-        rabbitTemplate.convertAndSend(amqpMessage);
+    public void publishSome(AmqpPayload amqpPayload){
+        rabbitTemplate.convertAndSend(amqpPayload);
     }
 
     @Scheduled(fixedDelay = 20_000l)
@@ -36,6 +36,6 @@ public class RabbitPublisher {
                                             .setHeader("__TypeId__","amqpPayload")//use by MessageConverter on consumer
                                             .setContentEncoding("UTF-8")//use by MessageConverter on consumer
                                             .build();
-        this.publishSome(amqpMessage);
+        this.publishSome(amqpPayload);
     }
 }
