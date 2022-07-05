@@ -1,16 +1,22 @@
 package ir.sadeqcloud.rabbitmq.rabbitmqTest;
 
-import org.springframework.amqp.core.Binding;
-import org.springframework.amqp.core.BindingBuilder;
-import org.springframework.amqp.core.Queue;
-import org.springframework.amqp.core.TopicExchange;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.RabbitReceiver;
+import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.amqpPublisher.RabbitPublisher;
+import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
+import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 /**
@@ -20,14 +26,15 @@ import org.springframework.context.annotation.Bean;
  * @EnableRabbit enables detection of RabbitListener annotations on any Spring-managed bean in the container
  */
 @EnableRabbit
+@EnableScheduling
 public class RabbitmqTestApplication {
 
 	public static void main(String[] args) {
 		SpringApplication.run(RabbitmqTestApplication.class, args);
 	}
 	@Bean
-	public Queue createQueue(){
-		return new Queue("testingQueue",true);
+	public Queue createQueue(@Value("${amqp.queue.listener}") String queueName){
+		return new Queue(queueName,true);
 	}
 	@Bean
 	/**
@@ -64,12 +71,52 @@ public class RabbitmqTestApplication {
 		cachingConnectionFactory.setPort(5672);
 		cachingConnectionFactory.setUsername("guest");
 		cachingConnectionFactory.setPassword("guest");
+		cachingConnectionFactory.setConnectionNameStrategy(connectionFactory->"connection-name");
 		return cachingConnectionFactory;
 	}
 	@Bean
-	public SimpleMessageListenerContainer createMessageListenerContainer(ConnectionFactory connectionFactory){
-		SimpleMessageListenerContainer simpleMessageListenerContainer = new SimpleMessageListenerContainer(connectionFactory);
-		return simpleMessageListenerContainer;
+	/**
+	 * decouple the business from messaging system
+	 */
+	public MessageListenerAdapter channelAdapter(RabbitReceiver rabbitReceiver,MessageConverter messageConverter){
+		MessageListenerAdapter messageListenerAdapter = new MessageListenerAdapter(rabbitReceiver, "onMessageArriaval");
+		messageListenerAdapter.setMessageConverter(messageConverter);
+
+		return messageListenerAdapter;
+	}
+	@Bean
+	/**
+	 * define messageListenerContainer
+	 */
+	public SimpleMessageListenerContainer createMessageListenerContainer(ConnectionFactory connectionFactory
+																		,@Value("${amqp.queue.listener}") String queueName
+																		,MessageListenerAdapter messageListenerAdapter){
+		SimpleMessageListenerContainer messageListenerContainer = new SimpleMessageListenerContainer(connectionFactory);
+		messageListenerContainer.addQueueNames(queueName);
+		messageListenerContainer.setMessageListener(messageListenerAdapter);
+		return messageListenerContainer;
 	}
 
+	/**
+	 * Provides synchronous send and receive methods
+	 *  delegate to an instance of
+	 *  {@link org.springframework.amqp.support.converter.MessageConverter} to perform conversion
+	 *  to and from AMQP byte[] payload type.
+	 */
+	@Bean
+	public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,MessageConverter messageConverter){
+		RabbitTemplate rabbitTemplate = new RabbitTemplate(connectionFactory);
+		rabbitTemplate.setExchange("topicExchange");
+		rabbitTemplate.setRoutingKey("test.template");
+		rabbitTemplate.setMessageConverter(messageConverter);
+		return rabbitTemplate;
+	}
+	@Bean
+	public ObjectMapper jsonConverter(){
+		return new ObjectMapper();
+	}
+	@Bean
+	public MessageConverter messageConverter(ObjectMapper objectMapper){
+		return new Jackson2JsonMessageConverter(objectMapper);
+	}
 }
