@@ -1,8 +1,8 @@
 package ir.sadeqcloud.rabbitmq.rabbitmqTest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpModel.AmqpPayload;
 import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.RabbitReceiver;
-import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.amqpPublisher.RabbitPublisher;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
@@ -10,13 +10,16 @@ import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.amqp.support.converter.*;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @SpringBootApplication
 /**
@@ -116,7 +119,33 @@ public class RabbitmqTestApplication {
 		return new ObjectMapper();
 	}
 	@Bean
-	public MessageConverter messageConverter(ObjectMapper objectMapper){
-		return new Jackson2JsonMessageConverter(objectMapper);
+	public MessageConverter messageConverter(ObjectMapper objectMapper
+											,@Qualifier("customized-classMapper") ClassMapper classMapper
+											,Jackson2JavaTypeMapper javaTypeMapper){
+		Jackson2JsonMessageConverter jackson2JsonMessageConverter = new Jackson2JsonMessageConverter(objectMapper);
+		jackson2JsonMessageConverter.setClassMapper(classMapper);
+		//jackson2JsonMessageConverter.setJavaTypeMapper(javaTypeMapper);
+		return jackson2JsonMessageConverter;
+	}
+	@Bean
+	/**
+	 * this is why to we use MessageConverter insteadOf ObjectMapper
+	 *  byte[](content-encoding) => string -> messageConverter("__TypeId__",content-type) => java obj
+	 */
+	public Jackson2JavaTypeMapper javaTypeMapper(){
+		DefaultJackson2JavaTypeMapper javaTypeMapper = new DefaultJackson2JavaTypeMapper();
+		Map<String,Class<?>> idClassMapping=new HashMap<>();
+		idClassMapping.put("amqpPayload",AmqpPayload.class);
+		javaTypeMapper.setIdClassMapping(idClassMapping);
+		javaTypeMapper.addTrustedPackages("ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpModel");
+		return javaTypeMapper;
+	}
+	@Bean(name = "customized-classMapper")
+	public ClassMapper messageConverterClassMapper(){
+		DefaultClassMapper classMapper = new DefaultClassMapper();
+		Map<String,Class<?>> idClassMapping=new HashMap<>();
+		idClassMapping.put("amqpPayload",AmqpPayload.class);
+		classMapper.setIdClassMapping(idClassMapping);
+		return classMapper;
 	}
 }

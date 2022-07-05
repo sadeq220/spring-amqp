@@ -1,4 +1,4 @@
-package ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.amqpPublisher;
+package ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpPublisher;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -24,14 +24,18 @@ public class RabbitPublisher {
         this.objectMapper=objectMapper;
     }
 
-    public void publishSome(AmqpPayload amqpPayload){
-        rabbitTemplate.convertAndSend(amqpPayload);
+    public void publishSome(Message amqpMessage){
+        rabbitTemplate.convertAndSend(amqpMessage);
     }
 
     @Scheduled(fixedDelay = 20_000l)
     public void publishMessage() throws JsonProcessingException {
         AmqpPayload amqpPayload = new AmqpPayload("sadeq", 220L, "hi there!", Instant.now());
-        Message amqpMessage = MessageBuilder.withBody(objectMapper.writeValueAsBytes(amqpPayload)).setContentType("application/json").build();
-        this.publishSome(amqpPayload);
+        Message amqpMessage = MessageBuilder.withBody(objectMapper.writeValueAsBytes(amqpPayload))
+                                            .setContentType("application/json")//use by MessageConverter on consumer
+                                            .setHeader("__TypeId__","amqpPayload")//use by MessageConverter on consumer
+                                            .setContentEncoding("UTF-8")//use by MessageConverter on consumer
+                                            .build();
+        this.publishSome(amqpMessage);
     }
 }
