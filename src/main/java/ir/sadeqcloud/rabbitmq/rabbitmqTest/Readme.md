@@ -11,3 +11,9 @@
 ### AMQP 1.0
 
 - AMQP 1.0 provides a way for connections to multiplex over a single TCP connection. That means an application can open multiple "lightweight connections" called sessions on a single connection. Applications then set up one or more links to publish and consume messages.
+
+
+## AMQP acknowledgement mode
+NONE => No acks - autoAck=true in Channel.basicConsume() . (means message will be deleted from queue even when exception raises )
+AUTO => default - Auto - the container will issue the ack/nack based on whether the listener returns normally, or throws an exception.
+MANUAL => Manual acks - user must ack/nack via a channel aware listener.

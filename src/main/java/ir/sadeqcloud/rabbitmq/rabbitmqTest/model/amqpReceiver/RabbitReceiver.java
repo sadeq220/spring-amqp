@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 import java.util.LinkedHashMap;
 
 @Component
+/**
+ * Message-driven POJO
+ */
 public class RabbitReceiver {
     private static final Logger LOGGER= LoggerFactory.getLogger(RabbitReceiver.class);
     public void onMessageArriaval(AmqpPayload amqpPayload){

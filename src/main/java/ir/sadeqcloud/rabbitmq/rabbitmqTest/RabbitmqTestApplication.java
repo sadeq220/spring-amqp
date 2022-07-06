@@ -69,6 +69,8 @@ public class RabbitmqTestApplication {
 		 * and ignores calls to Connection.close() and caches Channel.
 		 * CachingConnectionFactory, by default, establishes a single connection proxy that can be shared by the application.
 		 * Sharing of the connection is possible since the “unit of work” for messaging with AMQP is actually a “channel”
+		 *
+		 * default cache size is one
 		 */
 		cachingConnectionFactory.setHost("localhost");
 		cachingConnectionFactory.setPort(5672);
@@ -79,7 +81,11 @@ public class RabbitmqTestApplication {
 	}
 	@Bean
 	/**
+	 * use reflection API to invoke Message-driven POJO
 	 * decouple the business from messaging system
+	 * You can subclass the adapter and provide an implementation of getListenerMethodName() to dynamically select different methods based on the message.
+	 * This method has two parameters, originalMessage and extractedMessage, the latter being the result of any conversion.
+	 * buildListenerArguments(Object, Channel, Message) method helps listener to get Channel and Message arguments to do more, such as calling channel.basicReject(long, boolean) in manual acknowledge mode.
 	 */
 	public MessageListenerAdapter channelAdapter(RabbitReceiver rabbitReceiver,MessageConverter messageConverter){
 		MessageListenerAdapter messageListenerAdapter = new MessageListenerAdapter(rabbitReceiver, "onMessageArriaval");
@@ -97,6 +103,7 @@ public class RabbitmqTestApplication {
 		SimpleMessageListenerContainer messageListenerContainer = new SimpleMessageListenerContainer(connectionFactory);
 		messageListenerContainer.addQueueNames(queueName);
 		messageListenerContainer.setMessageListener(messageListenerAdapter);
+		messageListenerContainer.setAcknowledgeMode(AcknowledgeMode.NONE);
 		return messageListenerContainer;
 	}
 
@@ -106,9 +113,9 @@ public class RabbitmqTestApplication {
 	 *  {@link org.springframework.amqp.support.converter.MessageConverter} to perform conversion
 	 *  to and from AMQP byte[] payload type.
 	 *
-	 *  Also supports basic RPC pattern (send to exchange and expect result form queue) e.g.
+	 *  Also supports basic RPC(request/reply) pattern (send to exchange and expect result form queue) e.g.
 	 *        Message sendAndReceive(String routingKey, Message message) throws AmqpException;
-	 * 	set reply-to header to an exclusive queue
+	 * 		  amqpTemplate sets reply-to header to an exclusive queue
 	 */
 	@Bean
 	public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,MessageConverter messageConverter){
