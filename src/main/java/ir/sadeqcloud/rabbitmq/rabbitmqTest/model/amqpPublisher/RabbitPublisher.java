@@ -25,6 +25,10 @@ public class RabbitPublisher {
     }
 
     public void publishSome(AmqpPayload amqpPayload){
+        /**
+         * 	 Convert a Java object to an Amqp {@link Message} and send it to a default exchange
+         * 	 with a default routing key.
+         */
         rabbitTemplate.convertAndSend(amqpPayload);
     }
 

@@ -105,6 +105,10 @@ public class RabbitmqTestApplication {
 	 *  delegate to an instance of
 	 *  {@link org.springframework.amqp.support.converter.MessageConverter} to perform conversion
 	 *  to and from AMQP byte[] payload type.
+	 *
+	 *  Also supports basic RPC pattern (send to exchange and expect result form queue) e.g.
+	 *        Message sendAndReceive(String routingKey, Message message) throws AmqpException;
+	 * 	set reply-to header to an exclusive queue
 	 */
 	@Bean
 	public RabbitTemplate rabbitTemplate(ConnectionFactory connectionFactory,MessageConverter messageConverter){
