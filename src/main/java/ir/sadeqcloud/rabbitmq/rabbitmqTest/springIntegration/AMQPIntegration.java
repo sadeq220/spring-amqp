@@ -14,9 +14,16 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.integration.amqp.inbound.AmqpInboundChannelAdapter;
 import org.springframework.integration.annotation.Poller;
 import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.integration.channel.PublishSubscribeChannel;
 import org.springframework.integration.channel.QueueChannel;
+import org.springframework.integration.channel.interceptor.MessageSelectingInterceptor;
+import org.springframework.integration.selector.PayloadTypeSelector;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.SubscribableChannel;
+import org.springframework.messaging.support.ChannelInterceptor;
+
+import java.util.concurrent.Executors;
 
 @Configuration
 public class AMQPIntegration {
@@ -50,5 +57,24 @@ public class AMQPIntegration {
      */
     public void processMessage(Message<AmqpPayload> amqpMessage){
     System.out.println("message arrived");
+    }
+
+    @Bean
+    public SubscribableChannel eventMessageChannel(ChannelInterceptor channelInterceptor){
+        PublishSubscribeChannel publishSubscribeChannel = new PublishSubscribeChannel(Executors.newFixedThreadPool(10));//MessageDispatcher thread pool
+        publishSubscribeChannel.setDatatypes(String.class);//DataType channel enterprise integration pattern
+        publishSubscribeChannel.addInterceptor(channelInterceptor);
+        return publishSubscribeChannel;
+    }
+
+    /**
+     * DataType channel enterprise integration pattern
+     * @return ChannelInterceptor to filter messages
+     */
+    @Bean
+    public MessageSelectingInterceptor dataTypeChannel(){
+        PayloadTypeSelector payloadTypeSelector = new PayloadTypeSelector(AmqpPayload.class);
+        MessageSelectingInterceptor messageSelectingInterceptor = new MessageSelectingInterceptor(payloadTypeSelector);
+        return messageSelectingInterceptor;
     }
 }
