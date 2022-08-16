@@ -118,6 +118,7 @@ public class RabbitmqTestApplication {
 	 * Dead-Lettering defines what should happen with messages that get rejected by a consumer ( basic.reject or basic.nack with requeue parameter set to false)
 	 * we want to first retry a failed messages (Poison Messages are messages that can not get consumed) and then deadLetter them
 	 * RejectAndDontRequeueRecoverer : MessageRecover that causes the listener container to reject the message without requeuing. This enables failed messages to be sent to a Dead Letter Exchange/Queue, if the broker is so configured.
+	 * read more about <a href="https://www.rabbitmq.com/dlx.html">DLX</a>
 	 */
 	@Bean
 	public RetryOperationsInterceptor amqpRetryBackoff(){
