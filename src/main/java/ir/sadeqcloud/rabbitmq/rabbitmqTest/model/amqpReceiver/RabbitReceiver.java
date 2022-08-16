@@ -16,6 +16,9 @@ import java.util.LinkedHashMap;
 public class RabbitReceiver {
     private static final Logger LOGGER= LoggerFactory.getLogger(RabbitReceiver.class);
     public void onMessageArriaval(AmqpPayload amqpPayload){
-    LOGGER.info("successful listen");
+    LOGGER.info("successful listen id :"+amqpPayload.getId());
+        if (amqpPayload.getId() % 2 == 0) {
+        throw new RuntimeException("ha ha");
+        }
     }
 }

@@ -5,17 +5,20 @@ import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpModel.AmqpPayload;
 import ir.sadeqcloud.rabbitmq.rabbitmqTest.model.amqpReceiver.RabbitReceiver;
 import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.annotation.EnableRabbit;
+import org.springframework.amqp.rabbit.config.RetryInterceptorBuilder;
 import org.springframework.amqp.rabbit.connection.CachingConnectionFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.amqp.rabbit.listener.SimpleMessageListenerContainer;
 import org.springframework.amqp.rabbit.listener.adapter.MessageListenerAdapter;
+import org.springframework.amqp.rabbit.retry.RejectAndDontRequeueRecoverer;
 import org.springframework.amqp.support.converter.*;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import org.springframework.retry.interceptor.RetryOperationsInterceptor;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import java.util.HashMap;
@@ -36,8 +39,23 @@ public class RabbitmqTestApplication {
 		SpringApplication.run(RabbitmqTestApplication.class, args);
 	}
 	@Bean
-	public Queue createQueue(@Value("${amqp.queue.listener}") String queueName){
-		return new Queue(queueName,true);
+	public Queue consumerQueue(@Value("${amqp.queue.listener}") String queueName
+							, @Value("${amqp.dlx}") String dlx){
+		return  QueueBuilder.durable(queueName)
+				.withArgument("x-dead-letter-exchange",dlx)
+				.build();
+	}
+	@Bean
+	public FanoutExchange dlx(@Value("${amqp.dlx}") String dlx){
+		return new FanoutExchange(dlx);
+	}
+	@Bean
+	public Queue dlq(@Value("${amqp.dlq}") String dlq){
+		return QueueBuilder.durable(dlq).build();
+	}
+	@Bean
+	public Binding linkDLQToDLX(Queue dlq,FanoutExchange dlx){
+		return BindingBuilder.bind(dlq).to(dlx);
 	}
 	@Bean
 	/**
@@ -52,8 +70,8 @@ public class RabbitmqTestApplication {
 	/**
 	 * the AmqpAdmin class can use Binding instances to actually trigger the binding actions on the broker
 	 */
-	public Binding linkQueueToExchange(TopicExchange topicExchange,Queue queue){
-	return BindingBuilder.bind(queue).to(topicExchange).with("test.*");
+	public Binding linkQueueToExchange(TopicExchange topicExchange,Queue consumerQueue){
+	return BindingBuilder.bind(consumerQueue).to(topicExchange).with("test.*");
 	}
 
 	/**
@@ -93,17 +111,34 @@ public class RabbitmqTestApplication {
 
 		return messageListenerAdapter;
 	}
+
+	/**
+	 * retry-backoff-deadLettering
+	 * DLX (Dead Letter Exchanges) and DLQ (Dead-Letter-Queues) are both something you can configure as a policy for all queues or manually per queue.
+	 * Dead-Lettering defines what should happen with messages that get rejected by a consumer ( basic.reject or basic.nack with requeue parameter set to false)
+	 * we want to first retry a failed messages (Poison Messages are messages that can not get consumed) and then deadLetter them
+	 * RejectAndDontRequeueRecoverer : MessageRecover that causes the listener container to reject the message without requeuing. This enables failed messages to be sent to a Dead Letter Exchange/Queue, if the broker is so configured.
+	 */
+	@Bean
+	public RetryOperationsInterceptor amqpRetryBackoff(){
+		return RetryInterceptorBuilder.stateless()
+				.backOffOptions(100,3.0,1000) // 100ms wait time (delay) to retry
+				.maxAttempts(3)
+				.recoverer(new RejectAndDontRequeueRecoverer()) // Callback for message that was consumed but failed all retry attempts.
+				.build();
+	}
 	@Bean
 	/**
 	 * define messageListenerContainer
 	 */
 	public SimpleMessageListenerContainer createMessageListenerContainer(ConnectionFactory connectionFactory
 																		,@Value("${amqp.queue.listener}") String queueName
-																		,MessageListenerAdapter messageListenerAdapter){
+																		,MessageListenerAdapter messageListenerAdapter
+																		,RetryOperationsInterceptor retryOperationsInterceptor){
 		SimpleMessageListenerContainer messageListenerContainer = new SimpleMessageListenerContainer(connectionFactory);
 		messageListenerContainer.addQueueNames(queueName);
 		messageListenerContainer.setMessageListener(messageListenerAdapter);
-		messageListenerContainer.setAcknowledgeMode(AcknowledgeMode.NONE);
+		messageListenerContainer.setAdviceChain(retryOperationsInterceptor);
 		return messageListenerContainer;
 	}
 
