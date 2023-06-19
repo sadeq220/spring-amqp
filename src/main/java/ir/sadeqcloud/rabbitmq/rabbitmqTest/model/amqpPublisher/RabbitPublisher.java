@@ -10,7 +10,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 
 @Component
@@ -27,7 +26,7 @@ public class RabbitPublisher {
     public void publishSome(AmqpPayload amqpPayload){
         /**
          * 	 Convert a Java object to an Amqp {@link Message} and send it to a default exchange
-         * 	 with a default routing key.
+         * 	 with a default routing key. -- using MessageConverter
          */
         rabbitTemplate.convertAndSend(amqpPayload);
     }
