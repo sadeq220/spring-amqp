@@ -11,6 +11,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
+import java.util.List;
 
 @Component
 public class RabbitPublisher {
@@ -29,6 +30,17 @@ public class RabbitPublisher {
          * 	 with a default routing key. -- using MessageConverter
          */
         rabbitTemplate.convertAndSend(amqpPayload);
+    }
+
+    /**
+     * to send messages in strict order we should use the same channel
+     * 1)when sending all messages with one thread we can use **Scoped Operations** to achieve this.
+     *   Any operations performed within the scope of the callback and on the provided RabbitOperations argument use the same dedicated Channel,
+     *   which will be closed at the end (not returned to a cache).
+     */
+    public void publishInStrictOrder(List<AmqpPayload> amqpPayloads){
+        RabbitScopedOperations rabbitScopedOperations = new RabbitScopedOperations(amqpPayloads);
+        rabbitTemplate.invoke(rabbitScopedOperations);
     }
 
     @Scheduled(fixedDelay = 20_000l)
