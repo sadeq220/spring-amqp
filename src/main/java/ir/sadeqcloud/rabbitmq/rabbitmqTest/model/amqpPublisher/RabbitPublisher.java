@@ -37,6 +37,11 @@ public class RabbitPublisher {
      * 1)when sending all messages with one thread we can use **Scoped Operations** to achieve this.
      *   Any operations performed within the scope of the callback and on the provided RabbitOperations argument use the same dedicated Channel,
      *   which will be closed at the end (not returned to a cache).
+     *
+     * 2) in Multi-Threaded Environment
+     *  use bounded channel cache with size 1 (together with a channelCheckoutTimeout)
+     *  publisherCF.setChannelCacheSize(1);
+     * 	publisherCF.setChannelCheckoutTimeout(1000L);
      */
     public void publishInStrictOrder(List<AmqpPayload> amqpPayloads){
         RabbitScopedOperations rabbitScopedOperations = new RabbitScopedOperations(amqpPayloads);
