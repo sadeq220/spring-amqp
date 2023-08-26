@@ -54,7 +54,7 @@ public class RabbitmqTestApplication {
 	 * messages with larger priority numbers have larger priorities and came to head of the queue.
 	 */
 	public Queue priorityQueue(@Value("${amqp.priority.queue}") String priorityQueueName){
-		return QueueBuilder.durable()
+		return QueueBuilder.durable(priorityQueueName)
 				.withArgument("x-max-priority",5)
 				.build();
 	}
