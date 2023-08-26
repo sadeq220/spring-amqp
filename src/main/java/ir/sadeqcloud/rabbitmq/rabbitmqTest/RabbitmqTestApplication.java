@@ -46,6 +46,19 @@ public class RabbitmqTestApplication {
 				.build();
 	}
 	@Bean
+	/**
+	 * turn a queue to priority queue by specifying optional argument "x-max-priority"
+	 * this argument value specifies the range of message priorities that queue can prioritize.
+	 * it is recommended to set this value between 1 and 5 .
+	 * There is some in-memory and on-disk cost per priority level per queue.
+	 * messages with larger priority numbers have larger priorities and came to head of the queue.
+	 */
+	public Queue priorityQueue(@Value("${amqp.priority.queue}") String priorityQueueName){
+		return QueueBuilder.durable()
+				.withArgument("x-max-priority",5)
+				.build();
+	}
+	@Bean
 	public FanoutExchange dlx(@Value("${amqp.dlx}") String dlx){
 		return new FanoutExchange(dlx);
 	}
@@ -72,6 +85,10 @@ public class RabbitmqTestApplication {
 	 */
 	public Binding linkQueueToExchange(TopicExchange topicExchange,Queue consumerQueue){
 	return BindingBuilder.bind(consumerQueue).to(topicExchange).with("test.*");
+	}
+	@Bean
+	public Binding linkPriorityQueueToExchange(TopicExchange topicExchange,Queue priorityQueue){
+		return BindingBuilder.bind(priorityQueue).to(topicExchange).with("priority.*");
 	}
 
 	/**
